@@ -1,0 +1,135 @@
+/**
+ * search.js
+ * Search page logic:
+ *  1. loads the event categories from GET /api/categories into the dropdown,
+ *  2. when the form is submitted, builds a query string from the selected
+ *     criteria and calls GET /api/events/search?...,
+ *  3. renders the matching events, or a friendly error message.
+ *  4. the "Clear Filters" button resets every field (DOM manipulation).
+ * Author: Boyu Liu (24832407)
+ */
+
+(function () {
+    'use strict';
+
+    const form = document.getElementById('search-form');
+    const dateInput = document.getElementById('search-date');
+    const locationInput = document.getElementById('search-location');
+    const categorySelect = document.getElementById('search-category');
+    const clearButton = document.getElementById('clear-filters');
+    const messageBox = document.getElementById('search-message');
+    const resultsGrid = document.getElementById('search-results');
+    const resultsTitle = document.getElementById('results-title');
+
+    // ------------------------------------------------------------------
+    // Category dropdown
+    // ------------------------------------------------------------------
+    function loadCategories() {
+        fetchJSON(API_BASE + '/api/categories')
+            .then(function (categories) {
+                categories.forEach(function (category) {
+                    const option = document.createElement('option');
+                    option.value = category.category_id;
+                    option.textContent = category.category_name;
+                    categorySelect.appendChild(option);
+                });
+            })
+            .catch(function (err) {
+                console.error(err);
+                showMessage('Could not load categories. Is the API server running?', true);
+            });
+    }
+
+    // ------------------------------------------------------------------
+    // Message helpers (basic DOM manipulation)
+    // ------------------------------------------------------------------
+    function showMessage(text, isError) {
+        messageBox.textContent = text;
+        messageBox.className = isError ? 'message error' : 'message info';
+        messageBox.hidden = false;
+    }
+
+    function clearMessage() {
+        messageBox.hidden = true;
+        messageBox.textContent = '';
+    }
+
+    function clearResults() {
+        while (resultsGrid.firstChild) {
+            resultsGrid.removeChild(resultsGrid.firstChild);
+        }
+        resultsTitle.textContent = 'Results';
+    }
+
+    // ------------------------------------------------------------------
+    // Form submission -> search
+    // ------------------------------------------------------------------
+    form.addEventListener('submit', function (event) {
+        event.preventDefault(); // stay on this page - we fetch data via the API
+
+        const date = dateInput.value.trim();
+        const location = locationInput.value.trim();
+        const categoryId = categorySelect.value;
+
+        clearMessage();
+        clearResults();
+
+        // Client-side validation: at least one criterion must be selected.
+        if (!date && !location && !categoryId) {
+            showMessage('Please choose at least one search criterion (date, location or category).', true);
+            return;
+        }
+
+        // Client-side validation: the date cannot be a past date,
+        // because only current & upcoming events are shown.
+        if (date) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const picked = new Date(date + 'T00:00:00');
+            if (picked < today) {
+                showMessage('The search date cannot be in the past. Please choose today or a later date.', true);
+                return;
+            }
+        }
+
+        // Build the query string from the criteria that were filled in.
+        const params = new URLSearchParams();
+        if (date) params.set('date', date);
+        if (location) params.set('location', location);
+        if (categoryId) params.set('categoryId', categoryId);
+
+        showMessage('Searching events...', false);
+
+        fetchJSON(API_BASE + '/api/events/search?' + params.toString())
+            .then(function (events) {
+                clearMessage();
+                resultsTitle.textContent = events.length + ' event' + (events.length === 1 ? '' : 's') + ' found';
+
+                if (events.length === 0) {
+                    showMessage('No events match your search criteria. Try changing or clearing the filters.', false);
+                    return;
+                }
+
+                events.forEach(function (ev) {
+                    resultsGrid.insertAdjacentHTML('beforeend', buildEventCard(ev));
+                });
+            })
+            .catch(function (err) {
+                console.error(err);
+                showMessage(err.message || 'The search failed. Please try again later.', true);
+            });
+    });
+
+    // ------------------------------------------------------------------
+    // Clear Filters button - resets every field (DOM manipulation)
+    // ------------------------------------------------------------------
+    clearButton.addEventListener('click', function () {
+        form.reset();
+        clearMessage();
+        clearResults();
+        dateInput.focus();
+    });
+
+    // Load the categories when the page opens
+    loadCategories();
+})();
