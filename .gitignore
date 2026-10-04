@@ -1,0 +1,12 @@
+# Node dependencies
+node_modules/
+
+# Local database credentials (never commit real passwords)
+db-config.js
+
+# Editor / OS files
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+~$*
