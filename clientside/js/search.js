@@ -17,6 +17,7 @@
     const locationInput = document.getElementById('search-location');
     const categorySelect = document.getElementById('search-category');
     const clearButton = document.getElementById('clear-filters');
+    const searchButton = document.getElementById('search-button');
     const messageBox = document.getElementById('search-message');
     const resultsGrid = document.getElementById('search-results');
     const resultsTitle = document.getElementById('results-title');
@@ -100,8 +101,15 @@
 
         showMessage('Searching events...', false);
 
+        // Disable the button while the request is in flight,
+        // so the user cannot submit the same search twice.
+        searchButton.disabled = true;
+        searchButton.textContent = 'Searching...';
+
         fetchJSON(API_BASE + '/api/events/search?' + params.toString())
             .then(function (events) {
+                searchButton.disabled = false;
+                searchButton.textContent = 'Search';
                 clearMessage();
                 resultsTitle.textContent = events.length + ' event' + (events.length === 1 ? '' : 's') + ' found';
 
@@ -115,6 +123,10 @@
                 });
             })
             .catch(function (err) {
+                // Restore the button even if the request failed,
+                // otherwise it would stay disabled forever.
+                searchButton.disabled = false;
+                searchButton.textContent = 'Search';
                 console.error(err);
                 showMessage(err.message || 'The search failed. Please try again later.', true);
             });
@@ -129,6 +141,10 @@
         clearResults();
         dateInput.focus();
     });
+
+    // Show the current year in the footer automatically,
+    // so the copyright notice never goes out of date.
+    document.getElementById('footer-year').textContent = new Date().getFullYear();
 
     // Load the categories when the page opens
     loadCategories();

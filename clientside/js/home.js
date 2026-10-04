@@ -58,4 +58,7 @@
                 true
             );
         });
+    // Show the current year in the footer automatically,
+    // so the copyright notice never goes out of date.
+    document.getElementById('footer-year').textContent = new Date().getFullYear();
 })();
