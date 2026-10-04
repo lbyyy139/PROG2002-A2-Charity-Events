@@ -4,11 +4,13 @@
  * Author: Boyu Liu (24832407)
  *
  * The API serves JSON data from the MySQL database (charityevents_db) to the
- * client-side website.
+ * client-side website. Only GET endpoints are implemented in Assignment 2;
+ * POST / PUT / DELETE will be added in Assignment 3.
  *
  * Endpoints:
  *   GET /api/events            - current & upcoming events (home page)
  *   GET /api/events/search     - filter events by date, location, category (search page)
+ *   GET /api/events/:id        - full details of one event (event details page)
  *   GET /api/categories        - list of event categories (search page dropdown)
  */
 
@@ -138,6 +140,39 @@ app.get('/api/events/search', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/events/:id
+// Purpose: full details of a single event for the event details page.
+// Returns 404 when the event does not exist or has been suspended.
+// ---------------------------------------------------------------------------
+app.get('/api/events/:id', async (req, res) => {
+    try {
+        const eventId = req.params.id;
+
+        // Validate that the id is a positive integer.
+        if (!/^\d+$/.test(eventId)) {
+            return res.status(400).json({ error: 'Invalid event id.' });
+        }
+
+        const rows = await query(
+            EVENT_SELECT + `
+            WHERE e.event_id = ?
+              AND e.is_suspended = 0`,
+            [eventId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                error: 'Event not found or no longer available.'
+            });
+        }
+        res.json(rows[0]);
+    } catch (err) {
+        console.error('GET /api/events/:id failed:', err.message);
+        res.status(500).json({ error: 'Failed to retrieve the event.' });
+    }
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/categories
 // Purpose: list of event categories used to populate the search form dropdown.
 // ---------------------------------------------------------------------------
@@ -161,4 +196,9 @@ app.get('/api/categories', async (req, res) => {
 // ---------------------------------------------------------------------------
 app.listen(PORT, () => {
     console.log(`Charity Events API is running at http://localhost:${PORT}`);
+    console.log('Available endpoints:');
+    console.log('  GET /api/events');
+    console.log('  GET /api/events/search?date=&location=&categoryId=');
+    console.log('  GET /api/events/:id');
+    console.log('  GET /api/categories');
 });
